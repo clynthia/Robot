@@ -1,0 +1,163 @@
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.util.Date;
+import java.util.Vector;
+
+import javax.crypto.Cipher;
+        
+public class RBMain implements Runnable {  
+  
+    protected Date date = new Date();   
+    public ServerSocket ss;   
+    public Vector<Socket> ClientSocketVector;   
+    public int rNumber = 0;   
+    public boolean stopFlag = false;   
+    public Thread thread;   
+    
+    private SocketManager initial;           
+    private SocketManager opSocket; 
+    private SocketManager ccSocket; 
+            
+    public static final String ALGORITHM = "RSA";  
+    
+	//************************Change this to Command Center's IP address and Port.
+	String CCip = "127.0.0.1";
+	int CCport = 4444;
+	//************************Change this to Telebot's ID name.
+	String ID = "TB0001";
+            
+    public RBMain() {      
+        ClientSocketVector = new Vector<Socket>();   
+        try {           	        	
+        	initial = new SocketManager(CCip, CCport);
+        	initial.setupStreams(); 
+        	String p = "" + 10101;
+        	initial.startUp(ID, InetAddress.getLocalHost().getHostAddress(), p);
+//        	initial.close();
+        	
+            ss = new ServerSocket(10101);  
+            
+            thread = new Thread(this);   
+            thread.start();   
+          
+        } catch (IOException e) {   
+            e.printStackTrace();   
+        }   
+    }  
+            
+    public RBMain(int argPort) {    
+    	System.out.println("PORT: " + argPort);
+        ClientSocketVector = new Vector<Socket>();   
+        try {      
+        	initial = new SocketManager(CCip, CCport);
+        	initial.setupStreams();
+        	String p = "" + argPort;
+        	initial.startUp(ID, InetAddress.getLocalHost().getHostAddress(), p);
+//        	initial.close();
+            
+        	ss = new ServerSocket(argPort);
+
+            thread = new Thread(this);                                      
+            thread.start();
+
+        } catch (IOException e) {   
+             e.printStackTrace();
+        }   
+    }   
+            
+    public void run() {   
+        String sessionKey = null;   
+        Object publicKey = null;   
+        String sessionOP = null;   
+        Object publicOP = null;   
+                          
+        System.out.println("Telebot is awaiting orders from Command Center...");   
+        while (true) {   
+            try {                    
+                ccSocket = new SocketManager(ss.accept());   
+                ccSocket.setupStreams();       
+                System.out.println("Connected with Command Center.");
+                sessionKey = ccSocket.listenString();   
+                publicKey = ccSocket.listenObject();             
+                if (sessionKey != null && publicKey != null) {  
+                    ccSocket.sendString("READY");                 
+                    System.out.println("Received keys from CC and waiting for operator...");
+                } else System.out.println("TB is NOT Ready!");  
+                          
+                opSocket = new SocketManager(ss.accept());   
+                opSocket.setupStreams();
+                System.out.println("Connected with Operator.");
+                        
+                sessionOP = opSocket.listenString();    
+                publicOP = opSocket.listenObject();  
+                          
+                if (sessionKey.equals(sessionOP)) {  
+                    System.out.println("Connection with OP is established.");   
+                    ccSocket.sendString("CONNECTED");  
+                            
+//                    //*******************STARTED DIRECT CONNECTION********************  
+//                    engine = new ActiveObjectEngine("TBNetworkManagerEngine");   
+//                    new NetworkWriter(opSocket.getOOS());  
+//                    new NetworkReader(opSocket.getOIS());  
+//                    Thread thread = new Thread(engine);   
+//                    thread.start();  
+                }   
+                else opSocket.close();       
+                   
+                rNumber++;   
+                ClientSocketVector.add(opSocket.getSocket());   
+                System.out.println("Client vector size: "+ClientSocketVector.size());   
+                Thread.sleep(5);    
+                while (true) {}  
+                      
+            } catch (Exception e) {   
+                e.printStackTrace();                  
+            } finally {  
+                try {  
+                    if (opSocket != null) 
+                        opSocket.close(); 
+                    if (ccSocket != null) 
+                        ccSocket.close(); 
+                        
+                } catch (IOException e) {  
+                    e.printStackTrace();  
+                }  
+            }  
+        }      
+    }      
+        
+      
+    //*************************ENCRYPTION**********************  
+    public static byte[] encryptUsingPrivate(String text, PrivateKey key) {  
+        byte[] cipherText = null;  
+        try {  
+            final Cipher cipher = Cipher.getInstance(ALGORITHM);  
+            cipher.init(Cipher.ENCRYPT_MODE, key);  
+            cipherText = cipher.doFinal(text.getBytes());  
+        } catch (Exception e) {  
+            e.printStackTrace();  
+        }     
+        return cipherText;  
+    }  
+            
+    public static String decryptUsingPublic(byte[] text, PublicKey key) {  
+        byte[] dectyptedText = null;  
+        try {  
+            final Cipher cipher = Cipher.getInstance(ALGORITHM);  
+            cipher.init(Cipher.DECRYPT_MODE, key);  
+            dectyptedText = cipher.doFinal(text);  
+        
+        } catch (Exception e) {  
+            e.printStackTrace();  
+        }  
+        return new String(dectyptedText);  
+    }     
+    
+    public static void main(String[] args) {  
+        new RBMain(5555);  
+    }  
+}
