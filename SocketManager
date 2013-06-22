@@ -1,0 +1,97 @@
+import java.io.IOException;  
+import java.io.ObjectInputStream;  
+import java.io.ObjectOutputStream;  
+import java.net.InetAddress;  
+import java.net.Socket;  
+    
+    
+public class SocketManager {  
+        
+    private Socket socket;  
+    private ObjectOutputStream out;  
+    private ObjectInputStream in;     
+        
+    public SocketManager(Socket socket) {  
+        this.socket = socket;  
+    }  
+        
+    public SocketManager(String ip, int port) throws IOException {  
+        socket = new Socket(InetAddress.getByName(ip), port); 
+    }   
+        
+    public void setupStreams() throws IOException {          
+        out = new ObjectOutputStream(socket.getOutputStream());   
+        out.flush();   
+        in = new ObjectInputStream(socket.getInputStream());  
+    }  
+        
+    public void sendString(String message) throws IOException {   
+        out.writeObject(message);   
+        out.flush();   
+    }   
+          
+    public void sendObject(Object obj) throws IOException {   
+        out.writeObject(obj);   
+        out.flush();   
+    }   
+        
+    public String listenString() throws IOException {   
+        String message = null;   
+        try {   
+            message = (String)in.readObject();   
+                  
+        } catch (ClassNotFoundException e) {   
+            System.err.println("Invalid message!");   
+        }   
+        return message;   
+    }   
+        
+    public Object listenObject() throws IOException {   
+        Object obj = null;   
+        try {   
+            obj = in.readObject();   
+                  
+        } catch (ClassNotFoundException e) {   
+            System.err.println("Invalid object!");   
+        }   
+        return obj;   
+    }   
+        
+    public String getIP() {  
+        return socket.getInetAddress().getHostAddress();  
+    }  
+        
+    public ObjectOutputStream getOOS() {  
+        return out;  
+    }  
+        
+    public ObjectInputStream getOIS() {  
+        return in;  
+    }  
+        
+    public Socket getSocket() {  
+        return socket;  
+    }  
+      
+    public void startUp(String id, String ip, String port) { 
+        try { 
+            out.writeObject("STARTUP"); 
+            out.flush(); 
+            out.writeObject(id); 
+            out.flush(); 
+            out.writeObject(ip); 
+            out.flush(); 
+            out.writeObject(port); 
+            out.flush(); 
+        } catch (IOException e) { 
+            e.printStackTrace(); 
+        } 
+    } 
+        
+    public void close() throws IOException {  
+        if (in != null)   
+            in.close();  
+        if (out != null)  
+            out.close();  
+    }  
+}
